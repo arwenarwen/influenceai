@@ -1,3 +1,4 @@
+cat > lib/auth.ts <<'EOF'
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
@@ -5,7 +6,6 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-import authConfig from "@/auth.config";
 import { prisma } from "@/lib/prisma";
 
 const loginSchema = z.object({
@@ -29,20 +29,20 @@ export async function registerUser(data: {
 
   const hashedPassword = await bcrypt.hash(data.password, 12);
 
-  const user = await prisma.creator.create({
-  data: {
-    userId: user.id,
-    tier: "NANO",
-    niches: [],
-    profileComplete: false,
-  },
-});
+  const user = await prisma.user.create({
+    data: {
+      name: data.name,
+      email: data.email,
+      password: hashedPassword,
+      role: data.role,
+      emailVerified: new Date(),
+    },
+  });
 
   if (data.role === "CREATOR") {
     await prisma.creator.create({
       data: {
         userId: user.id,
-        displayName: data.name,
         tier: "NANO",
         niches: [],
         profileComplete: false,
@@ -76,7 +76,9 @@ export async function registerUser(data: {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
-  ...authConfig,
+  pages: {
+    signIn: "/sign-in",
+  },
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID ?? "",
@@ -142,3 +144,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+EOF
