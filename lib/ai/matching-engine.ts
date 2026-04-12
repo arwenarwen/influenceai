@@ -15,29 +15,24 @@ const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
-// ─── Score breakdown interface ────────────────────────────────────────────────
-
 export interface MatchScoreBreakdown {
-  overall: number;          // 0–100 composite
-  nicheRelevance: number;   // 0–100
-  audienceFit: number;      // 0–100
-  engagementQuality: number; // 0–100
-  platformFit: number;      // 0–100
-  tierFit: number;          // 0–100
-  budgetFit: number;        // 0–100
-  brandSafety: number;      // 0–100
+  overall: number;
+  nicheRelevance: number;
+  audienceFit: number;
+  engagementQuality: number;
+  platformFit: number;
+  tierFit: number;
+  budgetFit: number;
+  brandSafety: number;
 }
 
 type CreatorWithProfiles = Creator & { socialProfiles: SocialProfile[] };
 type CampaignFull = Campaign;
 
-// ─── Main matching function ───────────────────────────────────────────────────
-
 export async function scoreCreatorForCampaign(
   creator: CreatorWithProfiles,
   campaign: CampaignFull
 ): Promise<{ score: number; breakdown: MatchScoreBreakdown; reason: string }> {
-
   const breakdown: MatchScoreBreakdown = {
     overall: 0,
     nicheRelevance: scoreNicheRelevance(creator.niches, campaign.niches),
@@ -45,46 +40,45 @@ export async function scoreCreatorForCampaign(
     engagementQuality: scoreEngagementQuality(creator),
     platformFit: scorePlatformFit(creator.socialProfiles, campaign.platforms as string[]),
     tierFit: scoreTierFit(creator.tier, campaign.preferredTiers as string[]),
-    budgetFit: scoreBudgetFit(creator.minRatePerPost, creator.maxRatePerPost, campaign.budgetPerPost || campaign.budget / 3),
-    brandSafety: 85, // Default brand safety score
+    budgetFit: scoreBudgetFit(
+      creator.minRatePerPost,
+      creator.maxRatePerPost,
+      campaign.budgetPerPost || campaign.budget / 3
+    ),
+    brandSafety: 85,
   };
 
-  // Weighted composite score
   breakdown.overall = Math.round(
     breakdown.nicheRelevance * 0.25 +
-    breakdown.audienceFit * 0.20 +
-    breakdown.engagementQuality * 0.20 +
-    breakdown.platformFit * 0.15 +
-    breakdown.tierFit * 0.10 +
-    breakdown.budgetFit * 0.05 +
-    breakdown.brandSafety * 0.05
+      breakdown.audienceFit * 0.2 +
+      breakdown.engagementQuality * 0.2 +
+      breakdown.platformFit * 0.15 +
+      breakdown.tierFit * 0.1 +
+      breakdown.budgetFit * 0.05 +
+      breakdown.brandSafety * 0.05
   );
 
-  // AI-enhanced reason if OpenAI is available
   let reason = generateRuleBasedReason(creator, campaign, breakdown);
   if (openai && breakdown.overall > 60) {
     try {
       reason = await generateAIReason(creator, campaign, breakdown);
     } catch {
-      // Fall back to rule-based reason
+      // fall back
     }
   }
 
   return { score: breakdown.overall, breakdown, reason };
 }
 
-// ─── Scoring functions ────────────────────────────────────────────────────────
-
 function scoreNicheRelevance(creatorNiches: string[], campaignNiches: string[]): number {
   if (!campaignNiches.length) return 70;
   if (!creatorNiches.length) return 30;
 
-  const normalizedCreator = creatorNiches.map(n => n.toLowerCase());
-  const normalizedCampaign = campaignNiches.map(n => n.toLowerCase());
+  const normalizedCreator = creatorNiches.map((n) => n.toLowerCase());
+  const normalizedCampaign = campaignNiches.map((n) => n.toLowerCase());
 
-  const exactMatches = normalizedCreator.filter(n => normalizedCampaign.includes(n)).length;
+  const exactMatches = normalizedCreator.filter((n) => normalizedCampaign.includes(n)).length;
   if (exactMatches === 0) {
-    // Check partial matches (e.g. "fitness" ≈ "sports")
     const RELATED: Record<string, string[]> = {
       fitness: ['sports', 'health', 'wellness', 'lifestyle'],
       beauty: ['fashion', 'lifestyle', 'skincare'],
@@ -94,7 +88,7 @@ function scoreNicheRelevance(creatorNiches: string[], campaignNiches: string[]):
     };
     const partialScore = normalizedCampaign.reduce((acc, cn) => {
       const related = RELATED[cn] || [];
-      return acc + (normalizedCreator.some(c => related.includes(c)) ? 20 : 0);
+      return acc + (normalizedCreator.some((c) => related.includes(c)) ? 20 : 0);
     }, 0);
     return Math.min(60, partialScore);
   }
@@ -103,27 +97,23 @@ function scoreNicheRelevance(creatorNiches: string[], campaignNiches: string[]):
 }
 
 function scoreAudienceFit(creator: Creator, campaign: Campaign): number {
-  let score = 70; // base
-  let factors = 0;
+  let score = 70;
 
   if (campaign.audienceGender && creator.audienceGender) {
     if (creator.audienceGender === campaign.audienceGender) score += 15;
     else if (creator.audienceGender === 'mixed') score += 5;
     else score -= 15;
-    factors++;
   }
 
   if (campaign.audienceAge && creator.audienceAgeRange) {
     if (creator.audienceAgeRange === campaign.audienceAge) score += 15;
-    factors++;
   }
 
   if (campaign.audienceLocations.length && creator.audienceLocations.length) {
-    const overlap = creator.audienceLocations.some(l =>
-      campaign.audienceLocations.some(cl => l.toLowerCase().includes(cl.toLowerCase()))
+    const overlap = creator.audienceLocations.some((l) =>
+      campaign.audienceLocations.some((cl) => l.toLowerCase().includes(cl.toLowerCase()))
     );
     if (overlap) score += 15;
-    factors++;
   }
 
   return Math.max(0, Math.min(100, score));
@@ -133,10 +123,12 @@ function scoreEngagementQuality(creator: Creator): number {
   const rate = creator.avgEngagementRate;
   const followers = creator.totalFollowers;
 
-  // Industry benchmarks by tier:
-  // Nano: 5%+, Micro: 3%+, Mid: 2%+, Macro: 1.5%+, Mega: 1%+
   const benchmarks: Record<InfluencerTier, number> = {
-    NANO: 5, MICRO: 3, MID: 2, MACRO: 1.5, MEGA: 1,
+    NANO: 5,
+    MICRO: 3,
+    MID: 2,
+    MACRO: 1.5,
+    MEGA: 1,
   };
   const benchmark = benchmarks[creator.tier] || 2;
 
@@ -149,7 +141,6 @@ function scoreEngagementQuality(creator: Creator): number {
   else if (rate >= benchmark * 0.7) score = 55;
   else score = 35;
 
-  // Bonus for view count
   if (creator.avgViews > 0 && followers > 0) {
     const viewRatio = creator.avgViews / followers;
     if (viewRatio > 0.3) score = Math.min(100, score + 10);
@@ -162,8 +153,8 @@ function scorePlatformFit(profiles: SocialProfile[], campaignPlatforms: string[]
   if (!campaignPlatforms.length) return 75;
   if (!profiles.length) return 20;
 
-  const creatorPlatforms = profiles.map(p => p.platform.toString());
-  const overlap = creatorPlatforms.filter(p => campaignPlatforms.includes(p)).length;
+  const creatorPlatforms = profiles.map((p) => p.platform.toString());
+  const overlap = creatorPlatforms.filter((p) => campaignPlatforms.includes(p)).length;
   return Math.round((overlap / Math.max(campaignPlatforms.length, 1)) * 100);
 }
 
@@ -171,7 +162,6 @@ function scoreTierFit(creatorTier: InfluencerTier, preferredTiers: string[]): nu
   if (!preferredTiers.length) return 75;
   if (preferredTiers.includes(creatorTier)) return 100;
 
-  // Adjacent tiers get partial credit
   const TIER_ORDER = ['NANO', 'MICRO', 'MID', 'MACRO', 'MEGA'];
   const creatorIdx = TIER_ORDER.indexOf(creatorTier);
   const minDist = preferredTiers.reduce((min, t) => {
@@ -189,7 +179,7 @@ function scoreBudgetFit(
   maxRate: number | null,
   campaignBudgetPerCreator: number
 ): number {
-  if (!minRate && !maxRate) return 70; // No rate set, willing to negotiate
+  if (!minRate && !maxRate) return 70;
   const min = minRate || 0;
   const max = maxRate || min * 3;
 
@@ -198,8 +188,6 @@ function scoreBudgetFit(
   if (campaignBudgetPerCreator > max && campaignBudgetPerCreator <= max * 1.3) return 60;
   return 30;
 }
-
-// ─── AI Reason Generation ─────────────────────────────────────────────────────
 
 async function generateAIReason(
   creator: CreatorWithProfiles,
@@ -211,7 +199,8 @@ async function generateAIReason(
     messages: [
       {
         role: 'system',
-        content: 'You are an influencer marketing AI broker. Write a 2-3 sentence explanation for why this creator is a good match for this campaign. Be specific and data-driven. Keep it professional and concise.',
+        content:
+          'You are an influencer marketing AI broker. Write a 2-3 sentence explanation for why this creator is a good match for this campaign. Be specific and data-driven. Keep it professional and concise.',
       },
       {
         role: 'user',
@@ -232,16 +221,24 @@ function generateRuleBasedReason(
   breakdown: MatchScoreBreakdown
 ): string {
   const strengths: string[] = [];
-  if (breakdown.nicheRelevance >= 70) strengths.push(`strong niche alignment in ${creator.niches.slice(0, 2).join(' and ')}`);
-  if (breakdown.engagementQuality >= 70) strengths.push(`above-average engagement rate of ${creator.avgEngagementRate.toFixed(1)}%`);
-  if (breakdown.audienceFit >= 70) strengths.push(`audience demographics match your target market`);
-  if (breakdown.platformFit >= 70) strengths.push(`active on your required platforms`);
+  if (breakdown.nicheRelevance >= 70) {
+    strengths.push(`strong niche alignment in ${creator.niches.slice(0, 2).join(' and ')}`);
+  }
+  if (breakdown.engagementQuality >= 70) {
+    strengths.push(`above-average engagement rate of ${creator.avgEngagementRate.toFixed(1)}%`);
+  }
+  if (breakdown.audienceFit >= 70) {
+    strengths.push(`audience demographics match your target market`);
+  }
+  if (breakdown.platformFit >= 70) {
+    strengths.push(`active on your required platforms`);
+  }
 
-  if (strengths.length === 0) return `This creator has potential for your campaign with room for growth in alignment.`;
+  if (strengths.length === 0) {
+    return `This creator has potential for your campaign with room for growth in alignment.`;
+  }
   return `This creator is a ${breakdown.overall >= 80 ? 'top' : 'solid'} match due to ${strengths.join(', ')}.`;
 }
-
-// ─── Batch matching ───────────────────────────────────────────────────────────
 
 export async function runMatchingForCampaign(campaignId: string): Promise<void> {
   const campaign = await prisma.campaign.findUnique({
@@ -255,37 +252,34 @@ export async function runMatchingForCampaign(campaignId: string): Promise<void> 
     include: { socialProfiles: true },
   });
 
-  // Clear old pending matches
   await prisma.campaignMatch.deleteMany({
     where: { campaignId, status: 'pending' },
   });
 
   const matchPromises = creators.map(async (creator) => {
     const { score, breakdown, reason } = await scoreCreatorForCampaign(creator, campaign);
-    if (score < 40) return null; // Skip poor matches
+    if (score < 40) return null;
 
-   return prisma.campaignMatch.create({
-  data: {
-    campaignId,
-    creatorId: creator.id,
-    score,
-    breakdown: breakdown as unknown as Prisma.InputJsonValue,
-    reason,
-    status: 'pending',
-  },
-});
+    return prisma.campaignMatch.create({
+      data: {
+        campaignId,
+        creatorId: creator.id,
+        score,
+        breakdown: breakdown as unknown as Prisma.InputJsonValue,
+        reason,
+        status: 'pending',
+      },
+    });
   });
 
   const results = await Promise.all(matchPromises);
   const created = results.filter(Boolean).length;
 
-  // Update campaign
   await prisma.campaign.update({
     where: { id: campaignId },
     data: { status: 'MATCHING', matchCount: created },
   });
 
-  // Notify the brand
   const brand = await prisma.brand.findUnique({
     where: { id: campaign.brandId },
     include: { user: true },
@@ -303,8 +297,6 @@ export async function runMatchingForCampaign(campaignId: string): Promise<void> 
   }
 }
 
-// ─── NLP Profile Analyzer (for discovered creators) ──────────────────────────
-
 export async function analyzeCreatorProfile(profile: {
   handle: string;
   bio: string;
@@ -317,12 +309,26 @@ export async function analyzeCreatorProfile(profile: {
   brandSafetyScore: number;
   summary: string;
 }> {
-  const KNOWN_NICHES = ['Fashion', 'Beauty', 'Tech', 'Gaming', 'Fitness', 'Food', 'Travel', 'Music', 'Lifestyle', 'Sports', 'Education', 'Finance', 'Parenting', 'Entertainment'];
+  const KNOWN_NICHES = [
+    'Fashion',
+    'Beauty',
+    'Tech',
+    'Gaming',
+    'Fitness',
+    'Food',
+    'Travel',
+    'Music',
+    'Lifestyle',
+    'Sports',
+    'Education',
+    'Finance',
+    'Parenting',
+    'Entertainment',
+  ];
 
   if (!openai) {
-    // Rule-based fallback
     const bioLower = profile.bio.toLowerCase();
-    const detectedNiches = KNOWN_NICHES.filter(n => bioLower.includes(n.toLowerCase()));
+    const detectedNiches = KNOWN_NICHES.filter((n) => bioLower.includes(n.toLowerCase()));
     return {
       niches: detectedNiches.length ? detectedNiches : ['Lifestyle'],
       contentTypes: ['Posts', 'Stories'],
