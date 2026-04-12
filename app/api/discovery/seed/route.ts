@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import type { InfluencerTier, Platform } from '@prisma/client';
+import type { InfluencerTier, Platform, DiscoveryStatus } from '@prisma/client';
 
 export const maxDuration = 60;
 
@@ -195,7 +195,7 @@ interface GeneratedCreator {
   profileUrl: string;
   verified: boolean;
   location: string;
-  status: string;
+  status: DiscoveryStatus;
   aiSummary: string;
   brandSafetyScore: number;
 }
@@ -265,7 +265,7 @@ function generateCreatorBatch(startIndex: number, count: number): GeneratedCreat
       profileUrl: `https://${platformPrefix}${handle}`,
       verified,
       location: country,
-      status: 'CATEGORIZED',
+      status: 'CATEGORIZED' as DiscoveryStatus,
       aiSummary: `@${handle} — ${niche} content creator in ${country}`,
       brandSafetyScore,
     });
