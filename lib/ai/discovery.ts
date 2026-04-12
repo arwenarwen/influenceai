@@ -129,13 +129,19 @@ async function searchTikTokCreators(
 
     const url =
       `https://api.apify.com/v2/acts/clockworks~tiktok-scraper/run-sync-get-dataset-items` +
-      `?token=${token}&timeout=60&memory=256`;
+      `?token=${token}&timeout=45&memory=256`;
+
+    // Abort if Apify takes longer than 8 seconds (Vercel serverless limit)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!res.ok) throw new Error(`Apify TikTok error: ${res.status}`);
 
@@ -205,13 +211,19 @@ async function searchInstagramCreators(
 
     const url =
       `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items` +
-      `?token=${token}&timeout=60&memory=256`;
+      `?token=${token}&timeout=45&memory=256`;
+
+    // Abort if Apify takes longer than 8 seconds (Vercel serverless limit)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!res.ok) throw new Error(`Apify Instagram error: ${res.status}`);
 
