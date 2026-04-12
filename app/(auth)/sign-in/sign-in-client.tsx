@@ -38,8 +38,13 @@ export default function SignInClient() {
         variant: 'destructive',
       });
     } else {
-      router.push(callbackUrl);
-    }
+  const { getSession } = await import('next-auth/react');
+  const session = await getSession();
+  const role = (session?.user as any)?.role;
+  if (role === 'ADMIN') router.push('/admin');
+  else if (role === 'BRAND') router.push('/brand');
+  else router.push('/creator');
+}
   }
 
   async function handleGoogle() {
