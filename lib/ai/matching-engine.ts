@@ -9,7 +9,7 @@
 
 import OpenAI from 'openai';
 import { prisma } from '@/lib/prisma';
-import type { Campaign, Creator, SocialProfile, InfluencerTier } from '@prisma/client';
+import { Prisma, type Campaign, type Creator, type SocialProfile, type InfluencerTier } from '@prisma/client';
 
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -264,16 +264,16 @@ export async function runMatchingForCampaign(campaignId: string): Promise<void> 
     const { score, breakdown, reason } = await scoreCreatorForCampaign(creator, campaign);
     if (score < 40) return null; // Skip poor matches
 
-    return prisma.campaignMatch.create({
-      data: {
-        campaignId,
-        creatorId: creator.id,
-        score,
-        breakdown,
-        reason,
-        status: 'pending',
-      },
-    });
+   return prisma.campaignMatch.create({
+  data: {
+    campaignId,
+    creatorId: creator.id,
+    score,
+    breakdown: breakdown as unknown as Prisma.InputJsonValue,
+    reason,
+    status: 'pending',
+  },
+});
   });
 
   const results = await Promise.all(matchPromises);
