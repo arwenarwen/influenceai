@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import type { InfluencerTier, Platform } from '@prisma/client';
 
 export const maxDuration = 60;
 
@@ -172,7 +173,7 @@ function generateFollowers(tier: string, rng: () => number): number {
   }
 }
 
-function getTierFromFollowers(followers: number): string {
+function getTierFromFollowers(followers: number): InfluencerTier {
   if (followers >= 1_000_000) return 'MEGA';
   if (followers >= 500_000)   return 'MACRO';
   if (followers >= 100_000)   return 'MID';
@@ -181,14 +182,14 @@ function getTierFromFollowers(followers: number): string {
 }
 
 interface GeneratedCreator {
-  platform: string;
+  platform: Platform;
   handle: string;
   displayName: string;
   bio: string;
   followers: number;
   avgEngagement: number;
   avgViews: number;
-  tier: string;
+  tier: InfluencerTier;
   niches: string[];
   contentTypes: string[];
   profileUrl: string;
@@ -210,7 +211,7 @@ function generateCreatorBatch(startIndex: number, count: number): GeneratedCreat
     const firstName = pickFrom(FIRST_NAMES, rng);
     const lastName = pickFrom(LAST_NAMES, rng);
     const niche = pickFrom(NICHES, rng);
-    const platform = pickFrom([...PLATFORMS], rng);
+    const platform = pickFrom([...PLATFORMS], rng) as Platform;
     const tier = pickFrom(tiers, rng);
     const followers = generateFollowers(tier, rng);
     const country = pickFrom(COUNTRIES, rng);
@@ -300,8 +301,8 @@ export async function POST(req: NextRequest) {
     const results = await Promise.allSettled(
       chunk.map(c =>
         prisma.discoveredCreator.upsert({
-          where: { platform_handle: { platform: c.platform as any, handle: c.handle } },
-          create: { ...c, platform: c.platform as any, lastAnalyzed: new Date() },
+          where: { platform_handle: { platform: c.platform, handle: c.handle } },
+          create: { ...c, lastAnalyzed: new Date() },
           update: {},  // don't overwrite existing
         })
       )
