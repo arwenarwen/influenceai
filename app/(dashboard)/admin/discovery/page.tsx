@@ -32,7 +32,13 @@ export default function DiscoveryPage() {
         body: JSON.stringify(scanConfig),
       });
       const data = await res.json();
-      setDiscovered(prev => [...(data.discovered || []), ...prev]);
+      // data.creators is the array; data.discovered is just a count number
+      setDiscovered(prev => {
+        const newCreators: any[] = data.creators || [];
+        const existingIds = new Set(prev.map((c: any) => c.id));
+        const fresh = newCreators.filter((c: any) => !existingIds.has(c.id));
+        return [...fresh, ...prev];
+      });
     } finally {
       setScanning(false);
     }
