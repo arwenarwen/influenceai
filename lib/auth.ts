@@ -55,7 +55,6 @@ export async function registerUser(data: {
         userId: createdUser.id,
         companyName: data.name,
         industry: "General",
-        companySize: "SMALL",
       },
     });
   }
