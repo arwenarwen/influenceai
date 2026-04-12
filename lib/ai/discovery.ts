@@ -123,8 +123,8 @@ async function searchTikTokCreators(
     const hashtag = query.replace(/^#/, '');
     const body = {
       hashtags: [hashtag],
-      resultsType: 'videos',       // videos carry author profile info
-      maxResults: maxResults * 5,  // cast wide net, then filter unique authors
+      resultsType: 'videos',  // videos carry author profile info
+      maxResults: 20,         // keep small so Apify finishes in ~30s
     };
 
     const url =
@@ -133,7 +133,7 @@ async function searchTikTokCreators(
 
     // Abort if Apify takes longer than 8 seconds (Vercel serverless limit)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 50000);
 
     const res = await fetch(url, {
       method: 'POST',
@@ -204,8 +204,8 @@ async function searchInstagramCreators(
     const hashtag = query.replace(/^#/, '');
     const body = {
       search: hashtag,
-      searchType: 'hashtag',       // find posts tagged with this niche
-      resultsLimit: maxResults * 5,
+      searchType: 'hashtag',  // find posts tagged with this niche
+      resultsLimit: 20,       // keep small so Apify finishes in ~30s
       addParentData: false,
     };
 
@@ -215,7 +215,7 @@ async function searchInstagramCreators(
 
     // Abort if Apify takes longer than 8 seconds (Vercel serverless limit)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 50000);
 
     const res = await fetch(url, {
       method: 'POST',
