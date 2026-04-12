@@ -1,0 +1,430 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CREATOR
+  BRAND
+  ADMIN
+}
+
+enum Platform {
+  TIKTOK
+  INSTAGRAM
+  YOUTUBE
+  TWITTER
+  TWITCH
+  LINKEDIN
+  SNAPCHAT
+  PINTEREST
+}
+
+enum InfluencerTier {
+  NANO        // 1K - 10K
+  MICRO       // 10K - 100K
+  MID         // 100K - 500K
+  MACRO       // 500K - 1M
+  MEGA        // 1M+
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  MATCHING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CollaborationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  NEGOTIATING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PostType {
+  REEL
+  STORY
+  POST
+  VIDEO
+  LIVE
+  SHORT
+  TWEET
+  STREAM
+}
+
+enum DiscoveryStatus {
+  DISCOVERED
+  ANALYZED
+  CATEGORIZED
+  CONTACTED
+  SIGNED_UP
+}
+
+// ─── Core Auth Models ─────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          UserRole  @default(CREATOR)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  creator       Creator?
+  brand         Brand?
+  admin         Admin?
+  notifications Notification[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Creator Profile ──────────────────────────────────────────────────────────
+
+model Creator {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  bio         String?  @db.Text
+  location    String?
+  website     String?
+  profileComplete Boolean @default(false)
+
+  // Niche & Content
+  niches          String[]   // fashion, tech, fitness, gaming, etc.
+  contentTypes    String[]   // tutorials, reviews, vlogs, etc.
+  preferredBrands String[]
+  languages       String[]
+
+  // Audience Demographics
+  audienceAgeRange    String?  // e.g. "18-34"
+  audienceGender      String?  // "female", "male", "mixed"
+  audienceLocations   String[] // countries/cities
+
+  // Engagement (aggregate across platforms)
+  totalFollowers      Int      @default(0)
+  avgEngagementRate   Float    @default(0)
+  avgViews            Int      @default(0)
+  tier                InfluencerTier @default(NANO)
+
+  // Financials
+  minRatePerPost      Float?
+  maxRatePerPost      Float?
+  totalEarnings       Float    @default(0)
+
+  // Rating
+  rating              Float    @default(0)
+  reviewCount         Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  socialProfiles  SocialProfile[]
+  portfolio       PortfolioItem[]
+  collaborations  Collaboration[]
+  aiScores        CreatorAIScore[]
+}
+
+model SocialProfile {
+  id          String   @id @default(cuid())
+  creatorId   String
+  platform    Platform
+  handle      String
+  profileUrl  String?
+  followers   Int      @default(0)
+  following   Int      @default(0)
+  avgLikes    Int      @default(0)
+  avgComments Int      @default(0)
+  avgViews    Int      @default(0)
+  engagementRate Float @default(0)
+  verified    Boolean  @default(false)
+  lastSynced  DateTime?
+  isPublic    Boolean  @default(true)
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorId, platform])
+}
+
+model PortfolioItem {
+  id          String   @id @default(cuid())
+  creatorId   String
+  title       String
+  description String?
+  mediaUrl    String
+  mediaType   String   // image, video
+  platform    Platform?
+  views       Int?
+  likes       Int?
+  link        String?
+  createdAt   DateTime @default(now())
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+}
+
+// ─── Brand Profile ────────────────────────────────────────────────────────────
+
+model Brand {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  companyName     String
+  industry        String
+  website         String?
+  description     String?  @db.Text
+  logoUrl         String?
+  contactName     String?
+  contactPhone    String?
+  country         String?
+  verified        Boolean  @default(false)
+
+  // Budget & Preferences
+  defaultBudget   Float?
+  preferredTiers  InfluencerTier[]
+  preferredNiches String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+}
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+model Admin {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  permissions String[]
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+
+model Campaign {
+  id              String         @id @default(cuid())
+  brandId         String
+  title           String
+  description     String         @db.Text
+  productName     String?
+  productUrl      String?
+  industry        String?
+  status          CampaignStatus @default(DRAFT)
+
+  // Requirements
+  budget          Float
+  budgetPerPost   Float?
+  timeline        DateTime?
+  postTypes       PostType[]
+  platforms       Platform[]
+  niches          String[]
+  hashtags        String[]
+  mentions        String[]
+  contentBrief    String?        @db.Text
+
+  // Influencer Preferences
+  preferredTiers  InfluencerTier[]
+  minFollowers    Int?
+  maxFollowers    Int?
+  minEngagement   Float?
+  audienceAge     String?
+  audienceGender  String?
+  audienceLocations String[]
+
+  // AI Matching
+  aiMatchingEnabled Boolean @default(true)
+  matchCount        Int     @default(0)
+
+  // Analytics
+  totalReach      Int?
+  totalImpressions Int?
+  totalEngagement Int?
+  roi             Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  brand          Brand           @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  collaborations Collaboration[]
+  matches        CampaignMatch[]
+}
+
+// ─── Collaborations ───────────────────────────────────────────────────────────
+
+model Collaboration {
+  id              String              @id @default(cuid())
+  campaignId      String
+  creatorId       String
+  status          CollaborationStatus @default(PENDING)
+
+  // Negotiation
+  proposedRate    Float?
+  agreedRate      Float?
+  negotiationNotes String?           @db.Text
+
+  // Deliverables
+  deliverables    String[]
+  deadline        DateTime?
+  contentUrls     String[]
+
+  // Performance
+  actualReach     Int?
+  actualImpressions Int?
+  actualEngagement Int?
+  actualViews     Int?
+
+  // Payment
+  paymentStatus   String?
+  paymentDate     DateTime?
+  platformFee     Float?
+
+  // Rating & Review
+  brandRating     Float?
+  brandReview     String?
+  creatorRating   Float?
+  creatorReview   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creator  Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+}
+
+// ─── AI Matching ──────────────────────────────────────────────────────────────
+
+model CampaignMatch {
+  id          String   @id @default(cuid())
+  campaignId  String
+  creatorId   String?           // null if undiscovered
+  discoveredCreatorId String?   // reference to DiscoveredCreator
+  score       Float             // 0-100 match score
+  breakdown   Json              // detailed score breakdown
+  reason      String?  @db.Text // AI explanation
+  status      String   @default("pending") // pending, sent, accepted, declined
+  sentAt      DateTime?
+  respondedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  campaign         Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  discoveredCreator DiscoveredCreator? @relation(fields: [discoveredCreatorId], references: [id])
+}
+
+model CreatorAIScore {
+  id          String   @id @default(cuid())
+  creatorId   String
+  niche       String
+  score       Float
+  relevance   Float
+  audienceQuality Float
+  engagement  Float
+  growthRate  Float
+  brandSafety Float
+  updatedAt   DateTime @updatedAt
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorId, niche])
+}
+
+// ─── AI Discovery ─────────────────────────────────────────────────────────────
+
+model DiscoveredCreator {
+  id              String          @id @default(cuid())
+  platform        Platform
+  handle          String
+  profileUrl      String?
+  displayName     String?
+  bio             String?         @db.Text
+  profileImage    String?
+  followers       Int             @default(0)
+  avgEngagement   Float           @default(0)
+  avgViews        Int             @default(0)
+  tier            InfluencerTier  @default(NANO)
+  niches          String[]
+  contentTypes    String[]
+  languages       String[]
+  location        String?
+  verified        Boolean         @default(false)
+  status          DiscoveryStatus @default(DISCOVERED)
+
+  // AI Analysis
+  aiNicheScore    Json?           // niche -> score map
+  aiSummary       String?         @db.Text
+  brandSafetyScore Float          @default(100)
+  audienceQualityScore Float      @default(0)
+
+  lastAnalyzed    DateTime?
+  discoveredAt    DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  matches         CampaignMatch[]
+
+  @@unique([platform, handle])
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  type      String   // campaign, match, collaboration, system
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
