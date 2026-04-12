@@ -29,15 +29,14 @@ export async function registerUser(data: {
 
   const hashedPassword = await bcrypt.hash(data.password, 12);
 
-  const user = await prisma.user.create({
-    data: {
-      name: data.name,
-      email: data.email,
-      password: hashedPassword,
-      role: data.role,
-      emailVerified: new Date(),
-    },
-  });
+  const user = await prisma.creator.create({
+  data: {
+    userId: user.id,
+    tier: "NANO",
+    niches: [],
+    profileComplete: false,
+  },
+});
 
   if (data.role === "CREATOR") {
     await prisma.creator.create({
