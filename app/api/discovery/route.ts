@@ -17,11 +17,21 @@ export async function GET(req: NextRequest) {
   const niche = searchParams.get('niche');
   const status = searchParams.get('status');
 
+  const q = searchParams.get('q')?.trim().toLowerCase() || '';
+
   const creators = await prisma.discoveredCreator.findMany({
     where: {
       ...(platform ? { platform: platform as Platform } : {}),
       ...(niche ? { niches: { has: niche } } : {}),
       ...(status ? { status: status as any } : {}),
+      ...(q ? {
+        OR: [
+          { handle:      { contains: q, mode: 'insensitive' } },
+          { displayName: { contains: q, mode: 'insensitive' } },
+          { bio:         { contains: q, mode: 'insensitive' } },
+          { niches:      { has: q } },
+        ],
+      } : {}),
     },
     orderBy: [{ followers: 'desc' }, { avgEngagement: 'desc' }],
     take: 100,
