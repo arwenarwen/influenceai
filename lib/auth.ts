@@ -1,4 +1,3 @@
-cat > lib/auth.ts <<'EOF'
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
@@ -19,17 +18,17 @@ export async function registerUser(data: {
   password: string;
   role: "ADMIN" | "BRAND" | "CREATOR";
 }) {
-  const existing = await prisma.user.findUnique({
+  const existingUser = await prisma.user.findUnique({
     where: { email: data.email },
   });
 
-  if (existing) {
+  if (existingUser) {
     throw new Error("User already exists");
   }
 
   const hashedPassword = await bcrypt.hash(data.password, 12);
 
-  const user = await prisma.user.create({
+  const createdUser = await prisma.user.create({
     data: {
       name: data.name,
       email: data.email,
@@ -42,7 +41,7 @@ export async function registerUser(data: {
   if (data.role === "CREATOR") {
     await prisma.creator.create({
       data: {
-        userId: user.id,
+        userId: createdUser.id,
         tier: "NANO",
         niches: [],
         profileComplete: false,
@@ -53,7 +52,7 @@ export async function registerUser(data: {
   if (data.role === "BRAND") {
     await prisma.brand.create({
       data: {
-        userId: user.id,
+        userId: createdUser.id,
         companyName: data.name,
         industry: "General",
         companySize: "SMALL",
@@ -64,13 +63,13 @@ export async function registerUser(data: {
   if (data.role === "ADMIN") {
     await prisma.admin.create({
       data: {
-        userId: user.id,
+        userId: createdUser.id,
         permissions: ["all"],
       },
     });
   }
 
-  return user;
+  return createdUser;
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -144,4 +143,3 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
-EOF
