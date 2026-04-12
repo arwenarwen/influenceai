@@ -13,6 +13,67 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+export async function registerUser(data: {
+  name: string;
+  email: string;
+  password: string;
+  role: "ADMIN" | "BRAND" | "CREATOR";
+}) {
+  const existing = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
+
+  if (existing) {
+    throw new Error("User already exists");
+  }
+
+  const hashedPassword = await bcrypt.hash(data.password, 12);
+
+  const user = await prisma.user.create({
+    data: {
+      name: data.name,
+      email: data.email,
+      password: hashedPassword,
+      role: data.role,
+      emailVerified: new Date(),
+    },
+  });
+
+  if (data.role === "CREATOR") {
+    await prisma.creator.create({
+      data: {
+        userId: user.id,
+        displayName: data.name,
+        tier: "NANO",
+        niches: [],
+        profileComplete: false,
+      },
+    });
+  }
+
+  if (data.role === "BRAND") {
+    await prisma.brand.create({
+      data: {
+        userId: user.id,
+        companyName: data.name,
+        industry: "General",
+        companySize: "SMALL",
+      },
+    });
+  }
+
+  if (data.role === "ADMIN") {
+    await prisma.admin.create({
+      data: {
+        userId: user.id,
+        permissions: ["all"],
+      },
+    });
+  }
+
+  return user;
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
