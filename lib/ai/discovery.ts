@@ -103,9 +103,33 @@ async function searchYouTubeCreators(
   }
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** True when query looks like a username/person name rather than a hashtag/niche */
+function isPersonSearch(query: string): boolean {
+  const q = query.replace(/^#/, '').trim();
+  // "@handle", single word with no spaces, or 2-3 word name (e.g. "michael jaroh")
+  return query.startsWith('@') || q.split(' ').length <= 3;
+}
+
+async function apifyFetch(actorId: string, body: object, token: string): Promise<any[]> {
+  const url =
+    `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items` +
+    `?token=${token}&timeout=45&memory=256`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 50000);
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: controller.signal,
+  });
+  clearTimeout(timeoutId);
+  if (!res.ok) throw new Error(`Apify ${actorId} error: ${res.status}`);
+  return res.json();
+}
+
 // ─── TikTok (Apify TikTok Scraper) ───────────────────────────────────────────
-// Actor: clockworks/tiktok-scraper  (free $5/mo on apify.com)
-// Docs:  https://apify.com/clockworks/tiktok-scraper
 
 async function searchTikTokCreators(
   query: string,
@@ -119,65 +143,54 @@ async function searchTikTokCreators(
   }
 
   try {
-    // Search by hashtag to find creators in that niche
-    const hashtag = query.replace(/^#/, '');
-    const body = {
-      hashtags: [hashtag],
-      resultsType: 'videos',  // videos carry author profile info
-      maxResults: 20,         // keep small so Apify finishes in ~30s
-    };
+    const cleanQuery = query.replace(/^@/, '').trim();
+    let items: any[] = [];
 
-    const url =
-      `https://api.apify.com/v2/acts/clockworks~tiktok-scraper/run-sync-get-dataset-items` +
-      `?token=${token}&timeout=45&memory=256`;
+    if (isPersonSearch(query)) {
+      // Direct user/profile search — finds a specific person by name or handle
+      items = await apifyFetch('clockworks~tiktok-scraper', {
+        searchQueries: [cleanQuery],
+        resultsType: 'users',
+        maxResultsPerQuery: maxResults,
+      }, token);
+    } else {
+      // Niche/hashtag search — find creators who post about this topic
+      items = await apifyFetch('clockworks~tiktok-scraper', {
+        hashtags: [cleanQuery.replace(/^#/, '')],
+        resultsType: 'videos',
+        maxResults: 20,
+      }, token);
+    }
 
-    // Abort if Apify takes longer than 8 seconds (Vercel serverless limit)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 50000);
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (!res.ok) throw new Error(`Apify TikTok error: ${res.status}`);
-
-    const videos: any[] = await res.json();
-
-    // Deduplicate by author handle, keep richest profile data
     const authorMap = new Map<string, RawCreatorData>();
-    for (const v of videos) {
-      const meta = v.authorMeta;
-      if (!meta) continue;
-      const handle: string = meta.name || meta.nickName || '';
+
+    for (const item of items) {
+      // User search returns user objects directly; video search returns authorMeta
+      const meta = item.authorMeta ?? item;
+      const handle: string = meta.name || meta.uniqueId || meta.nickName || '';
       if (!handle || authorMap.has(handle)) continue;
 
-      const followers = meta.fans ?? 0;
+      const followers = meta.fans ?? meta.followerCount ?? 0;
       if (followers < minFollowers) continue;
 
       authorMap.set(handle, {
         handle,
-        displayName: meta.nickName || handle,
-        bio: meta.signature || '',
+        displayName: meta.nickName || meta.signature?.split('|')[0]?.trim() || handle,
+        bio: meta.signature || meta.bioLink || '',
         followers,
-        avgViews: Math.round((meta.heart ?? 0) / Math.max(meta.video ?? 1, 1)),
+        avgViews: Math.round((meta.heart ?? meta.heartCount ?? 0) / Math.max(meta.video ?? meta.videoCount ?? 1, 1)),
         profileUrl: `https://tiktok.com/@${handle}`,
-        profileImage: meta.avatar || '',
+        profileImage: meta.avatar || meta.avatarLarger || '',
         verified: meta.verified ?? false,
-        recentHashtags: (v.hashtags ?? []).map((h: any) => `#${h.name}`),
-        recentCaptions: v.text ? [v.text] : [],
+        recentHashtags: (item.hashtags ?? []).map((h: any) => `#${h.name}`),
+        recentCaptions: item.text ? [item.text] : [],
       });
 
       if (authorMap.size >= maxResults) break;
     }
 
     const creators = Array.from(authorMap.values());
-    console.log(
-      `✅ [TikTok] Found ${creators.length} real creators for "#${hashtag}"`
-    );
+    console.log(`✅ [TikTok] Found ${creators.length} creators for "${cleanQuery}"`);
     return creators.length ? creators : MOCK_CREATORS.TIKTOK;
   } catch (err) {
     console.error('[TikTok] Apify error, falling back to mock data:', err);
@@ -186,8 +199,6 @@ async function searchTikTokCreators(
 }
 
 // ─── Instagram (Apify Instagram Scraper) ─────────────────────────────────────
-// Actor: apify/instagram-scraper  (free $5/mo on apify.com)
-// Docs:  https://apify.com/apify/instagram-scraper
 
 async function searchInstagramCreators(
   query: string,
@@ -201,72 +212,65 @@ async function searchInstagramCreators(
   }
 
   try {
-    const hashtag = query.replace(/^#/, '');
-    const body = {
-      search: hashtag,
-      searchType: 'hashtag',  // find posts tagged with this niche
-      resultsLimit: 20,       // keep small so Apify finishes in ~30s
-      addParentData: false,
-    };
+    const cleanQuery = query.replace(/^[@#]/, '').trim();
+    let items: any[] = [];
 
-    const url =
-      `https://api.apify.com/v2/acts/apify~instagram-scraper/run-sync-get-dataset-items` +
-      `?token=${token}&timeout=45&memory=256`;
+    if (isPersonSearch(query)) {
+      // User search — finds a specific person by name or handle
+      // Try both user search and direct URL lookup
+      items = await apifyFetch('apify~instagram-scraper', {
+        search: cleanQuery,
+        searchType: 'user',
+        resultsLimit: maxResults,
+        addParentData: false,
+      }, token);
+    } else {
+      // Hashtag search — find creators who post about this niche
+      items = await apifyFetch('apify~instagram-scraper', {
+        search: cleanQuery,
+        searchType: 'hashtag',
+        resultsLimit: 20,
+        addParentData: false,
+      }, token);
+    }
 
-    // Abort if Apify takes longer than 8 seconds (Vercel serverless limit)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 50000);
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (!res.ok) throw new Error(`Apify Instagram error: ${res.status}`);
-
-    const posts: any[] = await res.json();
-
-    // Deduplicate by username, build creator profiles from post authors
     const profileMap = new Map<string, RawCreatorData>();
-    for (const post of posts) {
-      const owner = post.ownerUsername || post.username;
-      if (!owner || profileMap.has(owner)) continue;
+
+    for (const item of items) {
+      // User search returns profile objects; hashtag search returns posts
+      const username = item.username || item.ownerUsername;
+      if (!username || profileMap.has(username)) continue;
 
       const followers =
-        post.ownerFollowersCount ??
-        post.followersCount ??
-        post.owner?.followersCount ??
+        item.followersCount ??
+        item.ownerFollowersCount ??
+        item.owner?.followersCount ??
         0;
       if (followers < minFollowers) continue;
 
-      const tags: string[] = (post.hashtags ?? []).map((h: string) =>
+      const tags: string[] = (item.hashtags ?? []).map((h: string) =>
         h.startsWith('#') ? h : `#${h}`
       );
 
-      profileMap.set(owner, {
-        handle: owner,
-        displayName: post.ownerFullName || post.fullName || owner,
-        bio: post.biography || post.ownerBio || '',
+      profileMap.set(username, {
+        handle: username,
+        displayName: item.fullName || item.ownerFullName || username,
+        bio: item.biography || item.ownerBio || '',
         followers,
-        avgLikes: post.likesCount ?? 0,
-        profileUrl: `https://instagram.com/${owner}`,
-        profileImage: post.profilePicUrl || post.ownerProfilePicUrl || '',
-        verified: post.verified ?? false,
-        location: post.locationName || '',
+        avgLikes: item.likesCount ?? 0,
+        profileUrl: `https://instagram.com/${username}`,
+        profileImage: item.profilePicUrl || item.ownerProfilePicUrl || '',
+        verified: item.verified ?? false,
+        location: item.locationName || '',
         recentHashtags: tags,
-        recentCaptions: post.caption ? [post.caption.slice(0, 200)] : [],
+        recentCaptions: item.caption ? [item.caption.slice(0, 200)] : [],
       });
 
       if (profileMap.size >= maxResults) break;
     }
 
     const creators = Array.from(profileMap.values());
-    console.log(
-      `✅ [Instagram] Found ${creators.length} real creators for "#${hashtag}"`
-    );
+    console.log(`✅ [Instagram] Found ${creators.length} creators for "${cleanQuery}"`);
     return creators.length ? creators : MOCK_CREATORS.INSTAGRAM;
   } catch (err) {
     console.error('[Instagram] Apify error, falling back to mock data:', err);
