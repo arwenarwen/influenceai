@@ -1,5 +1,6 @@
+'use client';
+
 import Link from 'next/link';
-import Image from 'next/image';
 import {
   ArrowRight, Bot, BarChart3, Users, Zap, Star, TrendingUp, Shield,
   Globe, MapPin, CheckCircle, Dumbbell, Heart, Package, Shirt, Cpu,
