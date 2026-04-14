@@ -1,18 +1,12 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowRight, Bot, BarChart3, Users, Zap, Star, TrendingUp, Shield,
   Globe, MapPin, CheckCircle, Dumbbell, Heart, Package, Shirt, Cpu,
-  Sparkles, Play, Instagram, Youtube, ShoppingBag, Camera, Mic2, Music2,
-  BadgeCheck, ChevronRight,
+  Sparkles, BadgeCheck, ChevronRight,
 } from 'lucide-react';
 
-// ─── Theme tokens ──────────────────────────────────────────────────────────
-// Mint primary:  #00BFA5   Mint dark: #007A6E
-// Deep text:     #0A1F1C   Body text: #374151   Muted: #9CA3AF
-// BG white:      #FFFFFF   BG tint:   #F0FDF9
-// Border:        rgba(0,191,165,0.2)
-
-// ─── Logo ──────────────────────────────────────────────────────────────────
+// ─── NOMI Logo ─────────────────────────────────────────────────────────────
 function NomiLogo({ size = 40 }: { size?: number }) {
   const s = size / 50;
   return (
@@ -44,6 +38,7 @@ function NomiLogoSmall() {
 }
 
 // ─── Creator Card ──────────────────────────────────────────────────────────
+// Place creator photos in /public/images/ — e.g. /public/images/michael-jaroh.jpg
 interface Creator {
   name: string;
   handle: string;
@@ -51,87 +46,118 @@ interface Creator {
   followers: string;
   engagement: string;
   platforms: string[];
-  coverGrad: [string, string];
-  avatarGrad: [string, string];
-  initials: string;
+  photo: string;        // path like /images/michael-jaroh.jpg
+  coverPhoto?: string;  // optional separate cover, else uses photo
   badge?: string;
-  emoji: string;
   tier: 'MEGA' | 'RISING' | 'AUTHORITY';
+  accentColor: string;
+  location: string;
 }
 
-function CreatorCard({ c, compact = false }: { c: Creator; compact?: boolean }) {
-  const tierColor: Record<string, string> = { MEGA: '#00BFA5', RISING: '#3B82F6', AUTHORITY: '#8B5CF6' };
+const TIER_COLORS: Record<string, string> = {
+  MEGA: '#00BFA5',
+  RISING: '#3B82F6',
+  AUTHORITY: '#8B5CF6',
+};
+
+function CreatorCard({ c }: { c: Creator }) {
+  const tierColor = TIER_COLORS[c.tier];
   return (
     <div
-      className="rounded-2xl overflow-hidden bg-white flex flex-col"
-      style={{ border: '1px solid rgba(0,191,165,0.18)', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}
+      className="rounded-2xl overflow-hidden bg-white flex flex-col group"
+      style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.07)', transition: 'transform 0.2s, box-shadow 0.2s' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 12px 40px rgba(0,0,0,0.12)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 24px rgba(0,0,0,0.07)'; }}
     >
-      {/* Cover */}
-      <div
-        className="relative flex items-end justify-end p-3"
-        style={{
-          height: compact ? 72 : 100,
-          background: `linear-gradient(135deg, ${c.coverGrad[0]}, ${c.coverGrad[1]})`,
-        }}
-      >
-        <span style={{ fontSize: compact ? 28 : 36, lineHeight: 1 }}>{c.emoji}</span>
+      {/* Cover photo */}
+      <div className="relative overflow-hidden" style={{ height: 180 }}>
+        <img
+          src={c.coverPhoto || c.photo}
+          alt={`${c.name} cover`}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
+          onError={(e) => {
+            // Fallback gradient if image missing
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
+            (e.currentTarget.parentElement as HTMLElement).style.background = `linear-gradient(135deg, ${c.accentColor}CC, ${c.accentColor}66)`;
+          }}
+        />
+        {/* Gradient overlay for readability */}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%)' }} />
+
+        {/* Badge top-left */}
         {c.badge && (
-          <div
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-bold text-white"
-            style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)' }}
-          >
-            {c.badge}
+          <div className="absolute top-3 left-3">
+            <span className="text-xs font-semibold text-white px-2.5 py-1 rounded-full" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)' }}>
+              {c.badge}
+            </span>
           </div>
         )}
-      </div>
 
-      {/* Avatar + info */}
-      <div className="px-4 pb-4">
-        <div className="flex items-end justify-between -mt-6 mb-2">
-          <div
-            className="h-12 w-12 rounded-full border-3 border-white flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-            style={{
-              background: `linear-gradient(135deg, ${c.avatarGrad[0]}, ${c.avatarGrad[1]})`,
-              border: '3px solid white',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            }}
-          >
-            {c.initials}
-          </div>
-          <span
-            className="text-xs font-bold px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: `${tierColor[c.tier]}18`, color: tierColor[c.tier] }}
-          >
+        {/* Tier badge top-right */}
+        <div className="absolute top-3 right-3">
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{ backgroundColor: tierColor, boxShadow: `0 2px 8px ${tierColor}80` }}>
             {c.tier}
           </span>
         </div>
 
-        <div className="flex items-center gap-1 mb-0.5">
-          <span className="font-bold text-sm" style={{ color: '#0A1F1C' }}>{c.name}</span>
-          <BadgeCheck className="h-3.5 w-3.5" style={{ color: '#00BFA5' }} />
+        {/* Avatar overlapping cover */}
+        <div className="absolute -bottom-7 left-4">
+          <div className="relative">
+            <img
+              src={c.photo}
+              alt={c.name}
+              style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid white', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}
+              onError={(e) => {
+                const el = e.currentTarget as HTMLImageElement;
+                el.style.display = 'none';
+                const fb = el.nextElementSibling as HTMLElement;
+                if (fb) fb.style.display = 'flex';
+              }}
+            />
+            {/* Fallback initials */}
+            <div
+              className="hidden items-center justify-center text-white font-bold text-lg"
+              style={{ width: 56, height: 56, borderRadius: '50%', border: '3px solid white', background: `linear-gradient(135deg, ${c.accentColor}, ${c.accentColor}99)`, boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}
+            >
+              {c.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+            </div>
+            {/* Verified dot */}
+            <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full flex items-center justify-center" style={{ backgroundColor: '#00BFA5', border: '2px solid white' }}>
+              <BadgeCheck className="h-2.5 w-2.5 text-white" />
+            </div>
+          </div>
         </div>
-        <div className="text-xs mb-2" style={{ color: '#9CA3AF' }}>@{c.handle}</div>
+      </div>
 
-        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-          <span
-            className="text-xs px-2 py-0.5 rounded-full font-medium"
-            style={{ backgroundColor: 'rgba(0,191,165,0.1)', color: '#007A6E' }}
-          >
+      {/* Info */}
+      <div className="pt-9 px-4 pb-4 flex flex-col flex-1">
+        <div className="flex items-start justify-between mb-1">
+          <div>
+            <div className="font-bold text-base" style={{ color: '#0A1F1C' }}>{c.name}</div>
+            <div className="text-xs" style={{ color: '#9CA3AF' }}>@{c.handle}</div>
+          </div>
+          <div className="flex gap-1 text-sm mt-0.5">
+            {c.platforms.includes('TikTok') && <span title="TikTok">🎵</span>}
+            {c.platforms.includes('Instagram') && <span title="Instagram">📸</span>}
+            {c.platforms.includes('YouTube') && <span title="YouTube">▶️</span>}
+            {c.platforms.includes('Amazon') && <span title="Amazon">📦</span>}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 mb-3">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,191,165,0.1)', color: '#007A6E' }}>
             {c.niche}
           </span>
-          {c.platforms.includes('TikTok') && <span className="text-xs">🎵</span>}
-          {c.platforms.includes('Instagram') && <span className="text-xs">📸</span>}
-          {c.platforms.includes('YouTube') && <span className="text-xs">▶️</span>}
-          {c.platforms.includes('Amazon') && <span className="text-xs">📦</span>}
+          <span className="text-xs" style={{ color: '#9CA3AF' }}>· {c.location}</span>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex gap-5 mt-auto pt-3" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
           <div>
             <div className="text-sm font-bold" style={{ color: '#0A1F1C' }}>{c.followers}</div>
             <div className="text-xs" style={{ color: '#9CA3AF' }}>followers</div>
           </div>
           <div>
-            <div className="text-sm font-bold" style={{ color: '#00BFA5' }}>{c.engagement}</div>
+            <div className="text-sm font-bold" style={{ color: tierColor }}>{c.engagement}</div>
             <div className="text-xs" style={{ color: '#9CA3AF' }}>engagement</div>
           </div>
         </div>
@@ -140,7 +166,50 @@ function CreatorCard({ c, compact = false }: { c: Creator; compact?: boolean }) 
   );
 }
 
+// ─── Mini Creator Card ─────────────────────────────────────────────────────
+function CreatorCardMini({ c }: { c: Creator }) {
+  const tierColor = TIER_COLORS[c.tier];
+  return (
+    <div className="rounded-xl overflow-hidden bg-white" style={{ border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>
+      {/* Cover */}
+      <div className="relative" style={{ height: 80 }}>
+        <img
+          src={c.coverPhoto || c.photo}
+          alt={c.name}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
+            (e.currentTarget.parentElement as HTMLElement).style.background = `linear-gradient(135deg, ${c.accentColor}BB, ${c.accentColor}55)`;
+          }}
+        />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.4), transparent 60%)' }} />
+        <div className="absolute -bottom-5 left-3">
+          <img
+            src={c.photo}
+            alt={c.name}
+            style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid white', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}
+            onError={(e) => {
+              const el = e.currentTarget as HTMLImageElement;
+              el.style.background = `linear-gradient(135deg, ${c.accentColor}, ${c.accentColor}88)`;
+            }}
+          />
+        </div>
+      </div>
+      <div className="pt-7 px-3 pb-3">
+        <div className="font-bold text-xs truncate" style={{ color: '#0A1F1C' }}>{c.name}</div>
+        <div className="text-xs truncate mb-2" style={{ color: '#9CA3AF' }}>@{c.handle}</div>
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-bold" style={{ color: '#0A1F1C' }}>{c.followers}</div>
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: tierColor, fontSize: 9 }}>{c.tier}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Data ──────────────────────────────────────────────────────────────────
+// 📸 To add real photos: save images to /public/images/ in your Next.js project
+// e.g.  /public/images/michael-jaroh.jpg  → src="/images/michael-jaroh.jpg"
 
 const FEATURED_CREATORS: Creator[] = [
   {
@@ -150,12 +219,11 @@ const FEATURED_CREATORS: Creator[] = [
     followers: '1.9M',
     engagement: '8.2%',
     platforms: ['TikTok', 'Instagram'],
-    coverGrad: ['#00BFA5', '#007A6E'],
-    avatarGrad: ['#00BFA5', '#004D40'],
-    initials: 'MJ',
+    photo: '/images/michael-jaroh.jpg',
     badge: '2028 Olympic Hopeful',
-    emoji: '🤸',
     tier: 'MEGA',
+    accentColor: '#00BFA5',
+    location: 'Penn State',
   },
   {
     name: 'Kacper Garnczarek',
@@ -164,12 +232,11 @@ const FEATURED_CREATORS: Creator[] = [
     followers: '466K',
     engagement: '11.4%',
     platforms: ['TikTok', 'Instagram'],
-    coverGrad: ['#3B82F6', '#1D4ED8'],
-    avatarGrad: ['#3B82F6', '#1E3A8A'],
-    initials: 'KG',
+    photo: '/images/kacper-garnczarek.jpg',
     badge: 'Polish National Team',
-    emoji: '🏅',
     tier: 'RISING',
+    accentColor: '#3B82F6',
+    location: 'Penn State',
   },
   {
     name: 'Edriss Ndiaye',
@@ -178,114 +245,21 @@ const FEATURED_CREATORS: Creator[] = [
     followers: '76K',
     engagement: '14.2%',
     platforms: ['TikTok', 'Instagram'],
-    coverGrad: ['#8B5CF6', '#6D28D9'],
-    avatarGrad: ['#8B5CF6', '#4C1D95'],
-    initials: 'EN',
+    photo: '/images/edriss-ndiaye.jpg',
     badge: '2× NCAA All-American',
-    emoji: '🤺',
     tier: 'AUTHORITY',
+    accentColor: '#8B5CF6',
+    location: 'Ohio State',
   },
 ];
 
 const MORE_CREATORS: Creator[] = [
-  {
-    name: 'Sofia Martinez',
-    handle: 'sofialifts',
-    niche: 'Fitness & Wellness',
-    followers: '890K',
-    engagement: '7.8%',
-    platforms: ['TikTok', 'Instagram', 'YouTube'],
-    coverGrad: ['#F59E0B', '#D97706'],
-    avatarGrad: ['#F59E0B', '#92400E'],
-    initials: 'SM',
-    badge: 'Certified PT',
-    emoji: '💪',
-    tier: 'RISING',
-  },
-  {
-    name: 'Jake Thornton',
-    handle: 'jakerecovers',
-    niche: 'Recovery & Health',
-    followers: '340K',
-    engagement: '9.6%',
-    platforms: ['TikTok', 'YouTube', 'Amazon'],
-    coverGrad: ['#EC4899', '#BE185D'],
-    avatarGrad: ['#EC4899', '#831843'],
-    initials: 'JT',
-    badge: 'Sports Physio',
-    emoji: '🧘',
-    tier: 'RISING',
-  },
-  {
-    name: 'Priya Kapoor',
-    handle: 'priyaruns',
-    niche: 'Running & Nutrition',
-    followers: '1.2M',
-    engagement: '6.4%',
-    platforms: ['TikTok', 'Instagram'],
-    coverGrad: ['#10B981', '#047857'],
-    avatarGrad: ['#10B981', '#064E3B'],
-    initials: 'PK',
-    badge: 'USA Track & Field',
-    emoji: '🏃',
-    tier: 'MEGA',
-  },
-  {
-    name: 'Alex Chen',
-    handle: 'alexgeartech',
-    niche: 'Health Tech',
-    followers: '203K',
-    engagement: '12.1%',
-    platforms: ['YouTube', 'Amazon', 'TikTok'],
-    coverGrad: ['#0EA5E9', '#0369A1'],
-    avatarGrad: ['#0EA5E9', '#0C4A6E'],
-    initials: 'AC',
-    emoji: '⌚',
-    tier: 'AUTHORITY',
-  },
-  {
-    name: 'Destiny Williams',
-    handle: 'destinyactive',
-    niche: 'Activewear',
-    followers: '657K',
-    engagement: '9.9%',
-    platforms: ['Instagram', 'TikTok'],
-    coverGrad: ['#F97316', '#C2410C'],
-    avatarGrad: ['#F97316', '#7C2D12'],
-    initials: 'DW',
-    badge: 'Brand Ambassador',
-    emoji: '👟',
-    tier: 'RISING',
-  },
-  {
-    name: 'Marcus Reid',
-    handle: 'marcusstrength',
-    niche: 'Strength & Coaching',
-    followers: '88K',
-    engagement: '16.3%',
-    platforms: ['YouTube', 'Instagram', 'Amazon'],
-    coverGrad: ['#6366F1', '#4338CA'],
-    avatarGrad: ['#6366F1', '#312E81'],
-    initials: 'MR',
-    badge: 'NSCA Certified',
-    emoji: '🏋️',
-    tier: 'AUTHORITY',
-  },
-];
-
-const NICHES = [
-  { emoji: '🤸', label: 'Gymnastics & Athletics', count: '120+ creators' },
-  { emoji: '💪', label: 'Fitness & Training', count: '480+ creators' },
-  { emoji: '🧘', label: 'Wellness & Recovery', count: '310+ creators' },
-  { emoji: '🥗', label: 'Nutrition & Diet', count: '260+ creators' },
-  { emoji: '👟', label: 'Activewear & Gear', count: '390+ creators' },
-  { emoji: '⌚', label: 'Health Tech', count: '180+ creators' },
-  { emoji: '🏃', label: 'Running & Endurance', count: '220+ creators' },
-  { emoji: '🏋️', label: 'Strength & Powerlifting', count: '300+ creators' },
-  { emoji: '🛁', label: 'Athletic Skincare', count: '140+ creators' },
-  { emoji: '💊', label: 'Sports Nutrition', count: '430+ creators' },
-  { emoji: '🏊', label: 'Swimming & Aquatics', count: '95+ creators' },
-  { emoji: '🎯', label: 'Competitive Sports', count: '170+ creators' },
+  { name: 'Sofia Martinez', handle: 'sofialifts', niche: 'Fitness', followers: '890K', engagement: '7.8%', platforms: ['TikTok', 'Instagram', 'YouTube'], photo: '/images/sofia-martinez.jpg', badge: 'Certified PT', tier: 'RISING', accentColor: '#F59E0B', location: 'Los Angeles' },
+  { name: 'Jake Thornton', handle: 'jakerecovers', niche: 'Recovery', followers: '340K', engagement: '9.6%', platforms: ['TikTok', 'YouTube', 'Amazon'], photo: '/images/jake-thornton.jpg', badge: 'Sports Physio', tier: 'RISING', accentColor: '#EC4899', location: 'New York' },
+  { name: 'Priya Kapoor', handle: 'priyaruns', niche: 'Running', followers: '1.2M', engagement: '6.4%', platforms: ['TikTok', 'Instagram'], photo: '/images/priya-kapoor.jpg', badge: 'USA Track & Field', tier: 'MEGA', accentColor: '#10B981', location: 'Chicago' },
+  { name: 'Alex Chen', handle: 'alexgeartech', niche: 'Health Tech', followers: '203K', engagement: '12.1%', platforms: ['YouTube', 'Amazon', 'TikTok'], photo: '/images/alex-chen.jpg', tier: 'AUTHORITY', accentColor: '#0EA5E9', location: 'San Francisco' },
+  { name: 'Destiny Williams', handle: 'destinyactive', niche: 'Activewear', followers: '657K', engagement: '9.9%', platforms: ['Instagram', 'TikTok'], photo: '/images/destiny-williams.jpg', badge: 'Brand Ambassador', tier: 'RISING', accentColor: '#F97316', location: 'Miami' },
+  { name: 'Marcus Reid', handle: 'marcusstrength', niche: 'Strength', followers: '88K', engagement: '16.3%', platforms: ['YouTube', 'Instagram', 'Amazon'], photo: '/images/marcus-reid.jpg', badge: 'NSCA Certified', tier: 'AUTHORITY', accentColor: '#6366F1', location: 'Dallas' },
 ];
 
 const STATS = [
@@ -296,10 +270,10 @@ const STATS = [
 ];
 
 const PLATFORM_ICONS = [
-  { name: 'TikTok Shop', icon: '🎵', desc: 'Live commerce · 达人带货', color: '#FF0050' },
-  { name: 'Instagram', icon: '📸', desc: 'Brand content · 品牌合作', color: '#E1306C' },
-  { name: 'Amazon', icon: '📦', desc: 'Reviews & storefronts · 测评推广', color: '#FF9900' },
-  { name: 'YouTube', icon: '▶️', desc: 'Long-form reviews · 深度评测', color: '#FF0000' },
+  { name: 'TikTok Shop', icon: '🎵', desc: 'Live commerce · 达人带货' },
+  { name: 'Instagram', icon: '📸', desc: 'Brand content · 品牌合作' },
+  { name: 'Amazon', icon: '📦', desc: 'Reviews & storefronts · 测评推广' },
+  { name: 'YouTube', icon: '▶️', desc: 'Long-form reviews · 深度评测' },
 ];
 
 const SERVICES = [
@@ -318,30 +292,26 @@ const PHASES = [
 ];
 
 const PRICING = [
-  {
-    tier: 'Starter', tierCn: '入门测试', price: '$3,000', priceSuffix: '– $5,000',
-    desc: 'Test content formats and audience response before scaling.',
-    features: ['Strategy & creator brief', '5–10 micro-influencers or UGC creators', '15–20 ready-to-use video assets', 'TikTok or Amazon targeting', 'Performance summary report'],
-    highlight: false,
-  },
-  {
-    tier: 'Growth', tierCn: '品牌增长', price: '$10,000', priceSuffix: '+',
-    desc: 'Full influencer campaigns for brands serious about the U.S. market.',
-    features: ['End-to-end campaign management', 'Mid-tier & mega creator placement', 'TikTok + Amazon + Instagram', 'Content licensing rights included', 'Dedicated bilingual account manager', 'Live performance dashboard'],
-    highlight: true,
-  },
-  {
-    tier: 'Performance', tierCn: '效果分成', price: 'Base + %', priceSuffix: 'commission',
-    desc: 'Affiliate-driven model for TikTok Shop and Amazon — pay for results.',
-    features: ['Base retainer + 10–20% commission', 'TikTok Shop affiliate activation', 'Amazon storefront creator seeding', 'Ongoing relationship management', 'Unlimited scale'],
-    highlight: false,
-  },
+  { tier: 'Starter', tierCn: '入门测试', price: '$3,000', priceSuffix: '– $5,000', desc: 'Test content formats and audience response before scaling.', features: ['Strategy & creator brief', '5–10 micro-influencers or UGC creators', '15–20 ready-to-use video assets', 'TikTok or Amazon targeting', 'Performance summary report'], highlight: false },
+  { tier: 'Growth', tierCn: '品牌增长', price: '$10,000', priceSuffix: '+', desc: 'Full influencer campaigns for brands serious about the U.S. market.', features: ['End-to-end campaign management', 'Mid-tier & mega creator placement', 'TikTok + Amazon + Instagram', 'Content licensing rights included', 'Dedicated bilingual account manager', 'Live performance dashboard'], highlight: true },
+  { tier: 'Performance', tierCn: '效果分成', price: 'Base + %', priceSuffix: 'commission', desc: 'Affiliate-driven model for TikTok Shop and Amazon — pay for results.', features: ['Base retainer + 10–20% commission', 'TikTok Shop affiliate activation', 'Amazon storefront creator seeding', 'Ongoing relationship management', 'Unlimited scale'], highlight: false },
 ];
 
 const TESTIMONIALS = [
-  { name: 'Zhang Wei', role: 'CMO, ShineMax Beauty', avatar: 'ZW', grad: ['#00BFA5', '#007A6E'], text: 'NOMI found us 20 authentic US creators in one week. Our TikTok Shop sales grew 4x in the first campaign. The bilingual team made everything seamless.', rating: 5 },
-  { name: 'Ashley Rodriguez', role: 'Lifestyle Creator · 890K', avatar: 'AR', grad: ['#EC4899', '#BE185D'], text: "NOMI connects me with brands I genuinely love. They handle all translations and negotiations — I just create. Best partnership experience I've had.", rating: 5 },
-  { name: 'Li Hao', role: 'Founder, TechGear Pro', avatar: 'LH', grad: ['#6366F1', '#4338CA'], text: '我们第一次进军美国市场就选择了NOMI，AI匹配系统帮我们找到了完美的科技类创作者，ROI超出预期200%。', rating: 5 },
+  { name: 'Zhang Wei', role: 'CMO, ShineMax Beauty', avatar: 'ZW', grad: ['#00BFA5', '#007A6E'], text: 'NOMI found us 20 authentic US creators in one week. Our TikTok Shop sales grew 4x in the first campaign. The bilingual team made everything seamless.' },
+  { name: 'Ashley Rodriguez', role: 'Lifestyle Creator · 890K', avatar: 'AR', grad: ['#EC4899', '#BE185D'], text: "NOMI connects me with brands I genuinely love. They handle all translations and negotiations — I just create. Best partnership experience I've had." },
+  { name: 'Li Hao', role: 'Founder, TechGear Pro', avatar: 'LH', grad: ['#6366F1', '#4338CA'], text: '我们第一次进军美国市场就选择了NOMI，AI匹配系统帮我们找到了完美的创作者，ROI超出预期200%。' },
+];
+
+const NICHES = [
+  { emoji: '🤸', label: 'Gymnastics & Athletics', count: '120+' },
+  { emoji: '💪', label: 'Fitness & Training', count: '480+' },
+  { emoji: '🧘', label: 'Wellness & Recovery', count: '310+' },
+  { emoji: '🥗', label: 'Nutrition & Diet', count: '260+' },
+  { emoji: '👟', label: 'Activewear & Gear', count: '390+' },
+  { emoji: '⌚', label: 'Health Tech', count: '180+' },
+  { emoji: '🏃', label: 'Running & Endurance', count: '220+' },
+  { emoji: '🏋️', label: 'Strength & Lifting', count: '300+' },
 ];
 
 // ─── Page ──────────────────────────────────────────────────────────────────
@@ -350,7 +320,7 @@ export default function LandingPage() {
     <div className="min-h-screen" style={{ backgroundColor: '#FFFFFF', color: '#0A1F1C' }}>
 
       {/* ── Navbar ── */}
-      <nav className="sticky top-0 z-50" style={{ backgroundColor: 'rgba(255,255,255,0.96)', borderBottom: '1px solid rgba(0,191,165,0.18)', backdropFilter: 'blur(14px)' }}>
+      <nav className="sticky top-0 z-50" style={{ backgroundColor: 'rgba(255,255,255,0.97)', borderBottom: '1px solid rgba(0,0,0,0.07)', backdropFilter: 'blur(14px)' }}>
         <div className="container flex h-16 items-center justify-between">
           <NomiLogoSmall />
           <div className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: '#6B7280' }}>
@@ -361,7 +331,7 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-3">
             <Link href="/sign-in">
-              <button className="text-sm px-4 py-2 rounded-lg transition-colors" style={{ color: '#374151', border: '1px solid rgba(0,0,0,0.1)' }}>Sign in</button>
+              <button className="text-sm px-4 py-2 rounded-lg" style={{ color: '#374151', border: '1px solid rgba(0,0,0,0.1)' }}>Sign in</button>
             </Link>
             <Link href="/sign-up">
               <button className="text-sm px-4 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition-opacity" style={{ background: 'linear-gradient(135deg, #00BFA5, #007A6E)' }}>Get started →</button>
@@ -372,23 +342,18 @@ export default function LandingPage() {
 
       {/* ── Hero ── */}
       <section className="relative overflow-hidden pt-16 pb-0" style={{ backgroundColor: '#F0FDF9' }}>
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 60% 30%, rgba(0,191,165,0.14) 0%, transparent 60%)' }} />
-        <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: 'linear-gradient(rgba(0,191,165,1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,191,165,1) 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 65% 40%, rgba(0,191,165,0.13) 0%, transparent 60%)' }} />
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(rgba(0,191,165,1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,191,165,1) 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
 
         <div className="container relative">
           <div className="grid lg:grid-cols-2 gap-12 items-center pb-16">
-
-            {/* Left — copy */}
+            {/* Left */}
             <div>
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-6" style={{ border: '1px solid rgba(0,191,165,0.4)', backgroundColor: 'rgba(0,191,165,0.08)', color: '#007A6E' }}>
                 <Bot className="h-3.5 w-3.5" />
                 AI Creator Matching · 纽约双语团队
               </div>
-
-              <div className="mb-4">
-                <NomiLogo size={56} />
-              </div>
-
+              <div className="mb-5"><NomiLogo size={58} /></div>
               <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-4 leading-tight" style={{ color: '#0A1F1C' }}>
                 Go Global,{' '}
                 <span style={{ color: '#00BFA5' }}>Stay Local</span>
@@ -397,57 +362,55 @@ export default function LandingPage() {
               <p className="text-lg mb-8 leading-relaxed" style={{ color: '#4B5563', maxWidth: 480 }}>
                 Connecting Chinese brands with elite U.S. creators — NCAA athletes, Team USA competitors, and top lifestyle influencers — to build the trust that drives real sales.
               </p>
-
               <div className="flex flex-col sm:flex-row gap-3 mb-8">
                 <Link href="/sign-up?role=BRAND">
-                  <button className="flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white text-base hover:opacity-90 transition-opacity" style={{ background: 'linear-gradient(135deg, #00BFA5, #007A6E)', boxShadow: '0 0 28px rgba(0,191,165,0.3)' }}>
+                  <button className="flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white hover:opacity-90 transition-opacity" style={{ background: 'linear-gradient(135deg, #00BFA5, #007A6E)', boxShadow: '0 0 28px rgba(0,191,165,0.3)' }}>
                     我是品牌方 · I&apos;m a Brand <ArrowRight className="h-4 w-4" />
                   </button>
                 </Link>
                 <Link href="/sign-up?role=CREATOR">
-                  <button className="flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-base transition-colors" style={{ border: '1px solid rgba(0,191,165,0.4)', color: '#007A6E', backgroundColor: 'rgba(0,191,165,0.06)' }}>
+                  <button className="flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold transition-colors" style={{ border: '1px solid rgba(0,191,165,0.4)', color: '#007A6E', backgroundColor: 'rgba(0,191,165,0.06)' }}>
                     我是创作者 · Join as Creator
                   </button>
                 </Link>
               </div>
-
               <div className="flex items-center gap-2" style={{ color: '#9CA3AF' }}>
                 <MapPin className="h-4 w-4" style={{ color: '#00BFA5' }} />
                 <span className="text-sm">NYC Based · Bilingual Team · 纽约本土双语团队</span>
               </div>
             </div>
 
-            {/* Right — creator cards collage */}
-            <div className="relative hidden lg:block h-[520px]">
-              {/* Main featured card */}
-              <div className="absolute left-0 top-10 w-64 z-20" style={{ transform: 'rotate(-2deg)' }}>
+            {/* Right — stacked creator cards */}
+            <div className="hidden lg:block relative h-[520px]">
+              {/* Main card */}
+              <div className="absolute left-0 top-8 w-[260px] z-20" style={{ transform: 'rotate(-2deg)', filter: 'drop-shadow(0 16px 40px rgba(0,0,0,0.12))' }}>
                 <CreatorCard c={FEATURED_CREATORS[0]} />
               </div>
               {/* Second card */}
-              <div className="absolute right-0 top-0 w-60 z-10" style={{ transform: 'rotate(2deg)' }}>
+              <div className="absolute right-0 top-0 w-[248px] z-10" style={{ transform: 'rotate(2.5deg)', filter: 'drop-shadow(0 12px 30px rgba(0,0,0,0.1))' }}>
                 <CreatorCard c={FEATURED_CREATORS[1]} />
               </div>
               {/* Third card */}
-              <div className="absolute right-16 bottom-4 w-58 z-30" style={{ transform: 'rotate(-1deg)' }}>
+              <div className="absolute right-12 bottom-0 w-[242px] z-30" style={{ transform: 'rotate(-1deg)', filter: 'drop-shadow(0 20px 50px rgba(0,0,0,0.14))' }}>
                 <CreatorCard c={FEATURED_CREATORS[2]} />
               </div>
 
-              {/* Floating stats badge */}
-              <div className="absolute left-52 top-8 z-40 rounded-xl px-4 py-3 bg-white" style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.1)', border: '1px solid rgba(0,191,165,0.2)' }}>
+              {/* Floating engagement badge */}
+              <div className="absolute left-52 top-6 z-40 rounded-2xl px-4 py-3 bg-white" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.1)', border: '1px solid rgba(0,191,165,0.2)' }}>
                 <div className="text-xs font-semibold mb-0.5" style={{ color: '#9CA3AF' }}>Avg. Engagement</div>
                 <div className="text-2xl font-extrabold" style={{ color: '#00BFA5' }}>11.4%</div>
               </div>
 
-              {/* Floating platform badge */}
-              <div className="absolute left-4 bottom-20 z-40 rounded-xl px-4 py-3 bg-white" style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.1)', border: '1px solid rgba(0,191,165,0.2)' }}>
-                <div className="text-xs font-semibold mb-1.5" style={{ color: '#9CA3AF' }}>Live on</div>
+              {/* Floating live badge */}
+              <div className="absolute left-4 bottom-24 z-40 rounded-2xl px-4 py-3 bg-white" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.1)', border: '1px solid rgba(0,191,165,0.2)' }}>
+                <div className="text-xs font-semibold mb-2" style={{ color: '#9CA3AF' }}>Active on</div>
                 <div className="flex gap-2 text-lg">🎵 📸 ▶️ 📦</div>
               </div>
             </div>
           </div>
 
           {/* Stats bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-8 pt-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-8">
             {STATS.map((s) => (
               <div key={s.label} className="rounded-2xl p-5 text-center bg-white" style={{ border: '1px solid rgba(0,191,165,0.18)', boxShadow: '0 2px 12px rgba(0,191,165,0.07)' }}>
                 <div className="text-2xl md:text-3xl font-extrabold mb-1" style={{ color: '#00BFA5' }}>{s.value}</div>
@@ -460,7 +423,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Platforms Strip ── */}
-      <section className="py-12 bg-white" style={{ borderBottom: '1px solid rgba(0,191,165,0.12)' }}>
+      <section className="py-12 bg-white" style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
         <div className="container">
           <p className="text-center text-xs font-semibold tracking-widest uppercase mb-7" style={{ color: '#9CA3AF' }}>Platforms We Operate On · 覆盖平台</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
@@ -485,45 +448,27 @@ export default function LandingPage() {
               <p className="mt-2" style={{ color: '#6B7280' }}>Personal relationships — not a marketplace · 独家私人关系，非达人平台</p>
             </div>
             <Link href="/sign-up">
-              <button className="flex items-center gap-1.5 text-sm font-semibold hover:gap-2.5 transition-all" style={{ color: '#00BFA5' }}>
+              <button className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: '#00BFA5' }}>
                 Browse all creators <ChevronRight className="h-4 w-4" />
               </button>
             </Link>
           </div>
 
-          {/* Featured 3 */}
-          <div className="grid md:grid-cols-3 gap-6 mb-8">
+          {/* Top 3 full cards */}
+          <div className="grid md:grid-cols-3 gap-6 mb-10">
             {FEATURED_CREATORS.map((c) => (
               <CreatorCard key={c.handle} c={c} />
             ))}
           </div>
 
-          {/* More creators grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* 6 mini cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
             {MORE_CREATORS.map((c) => (
-              <div key={c.handle} className="rounded-2xl overflow-hidden bg-white" style={{ border: '1px solid rgba(0,191,165,0.15)', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
-                {/* Mini cover */}
-                <div className="relative h-16 flex items-end justify-end p-2" style={{ background: `linear-gradient(135deg, ${c.coverGrad[0]}, ${c.coverGrad[1]})` }}>
-                  <span style={{ fontSize: 22 }}>{c.emoji}</span>
-                </div>
-                {/* Mini info */}
-                <div className="p-3">
-                  <div className="-mt-5 mb-2">
-                    <div className="h-9 w-9 rounded-full border-2 border-white flex items-center justify-center text-white font-bold text-xs" style={{ background: `linear-gradient(135deg, ${c.avatarGrad[0]}, ${c.avatarGrad[1]})` }}>
-                      {c.initials}
-                    </div>
-                  </div>
-                  <div className="font-bold text-xs truncate" style={{ color: '#0A1F1C' }}>{c.name}</div>
-                  <div className="text-xs truncate" style={{ color: '#9CA3AF' }}>@{c.handle}</div>
-                  <div className="text-xs font-bold mt-1.5" style={{ color: '#00BFA5' }}>{c.followers}</div>
-                  <div className="text-xs" style={{ color: '#9CA3AF' }}>followers</div>
-                </div>
-              </div>
+              <CreatorCardMini key={c.handle} c={c} />
             ))}
           </div>
 
-          {/* View more CTA */}
-          <div className="text-center mt-10">
+          <div className="text-center">
             <Link href="/sign-up">
               <button className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl font-semibold text-white hover:opacity-90 transition-opacity" style={{ background: 'linear-gradient(135deg, #00BFA5, #007A6E)' }}>
                 Browse full creator roster · 查看所有创作者 <ArrowRight className="h-4 w-4" />
@@ -533,21 +478,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Creator Niches ── */}
-      <section className="py-20" style={{ backgroundColor: '#F0FDF9', borderTop: '1px solid rgba(0,191,165,0.12)' }}>
+      {/* ── Niches ── */}
+      <section className="py-20" style={{ backgroundColor: '#F0FDF9', borderTop: '1px solid rgba(0,191,165,0.1)' }}>
         <div className="container">
           <div className="text-center mb-12">
             <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: '#00BFA5' }}>Creator Niches · 达人垂类</p>
             <h2 className="text-3xl font-bold mb-2" style={{ color: '#0A1F1C' }}>Every wellness & lifestyle vertical covered</h2>
-            <p style={{ color: '#6B7280' }}>我们的创作者网络覆盖所有健康生活方式垂直品类</p>
+            <p style={{ color: '#6B7280' }}>我们的创作者网络覆盖所有健康生活方式品类</p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto">
             {NICHES.map((n) => (
-              <div key={n.label} className="rounded-xl p-4 flex items-center gap-3 bg-white hover:shadow-md transition-shadow cursor-default" style={{ border: '1px solid rgba(0,191,165,0.16)' }}>
+              <div key={n.label} className="rounded-xl p-4 flex items-center gap-3 bg-white" style={{ border: '1px solid rgba(0,191,165,0.15)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                 <span className="text-2xl flex-shrink-0">{n.emoji}</span>
                 <div>
                   <div className="font-semibold text-xs leading-snug" style={{ color: '#0A1F1C' }}>{n.label}</div>
-                  <div className="text-xs mt-0.5" style={{ color: '#00BFA5' }}>{n.count}</div>
+                  <div className="text-xs mt-0.5 font-semibold" style={{ color: '#00BFA5' }}>{n.count} creators</div>
                 </div>
               </div>
             ))}
@@ -565,8 +510,8 @@ export default function LandingPage() {
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             {SERVICES.map((f) => (
-              <div key={f.title} className="rounded-2xl p-6 bg-white hover:-translate-y-1 transition-transform" style={{ border: '1px solid rgba(0,191,165,0.18)', boxShadow: '0 2px 12px rgba(0,191,165,0.06)' }}>
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(0,191,165,0.1)', border: '1px solid rgba(0,191,165,0.28)' }}>
+              <div key={f.title} className="rounded-2xl p-6 bg-white hover:-translate-y-1 transition-transform" style={{ border: '1px solid rgba(0,191,165,0.16)', boxShadow: '0 2px 12px rgba(0,191,165,0.06)' }}>
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(0,191,165,0.1)', border: '1px solid rgba(0,191,165,0.25)' }}>
                   <f.icon className="h-5 w-5" style={{ color: '#00BFA5' }} />
                 </div>
                 <h3 className="font-semibold text-lg mb-0.5" style={{ color: '#0A1F1C' }}>{f.title}</h3>
@@ -578,7 +523,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Campaign Framework ── */}
+      {/* ── 3-Phase Framework ── */}
       <section id="how-it-works" className="py-24" style={{ backgroundColor: '#F0FDF9' }}>
         <div className="container">
           <div className="text-center mb-14">
@@ -588,7 +533,7 @@ export default function LandingPage() {
           </div>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {PHASES.map((p) => (
-              <div key={p.num} className="rounded-2xl p-8 bg-white" style={{ border: '1px solid rgba(0,191,165,0.2)', boxShadow: '0 2px 14px rgba(0,191,165,0.07)' }}>
+              <div key={p.num} className="rounded-2xl p-8 bg-white" style={{ border: '1px solid rgba(0,191,165,0.18)', boxShadow: '0 2px 14px rgba(0,191,165,0.07)' }}>
                 <div className="text-4xl mb-4">{p.emoji}</div>
                 <p className="text-xs font-semibold tracking-widest uppercase mb-0.5" style={{ color: '#00BFA5' }}>{p.phase}</p>
                 <p className="text-xs mb-4" style={{ color: '#9CA3AF' }}>{p.phaseCn}</p>
@@ -660,9 +605,9 @@ export default function LandingPage() {
           <p className="text-center mb-14" style={{ color: '#9CA3AF' }}>品牌与创作者的共同选择</p>
           <div className="grid md:grid-cols-3 gap-6">
             {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="rounded-2xl p-6 bg-white" style={{ border: '1px solid rgba(0,191,165,0.18)', boxShadow: '0 2px 12px rgba(0,191,165,0.06)' }}>
+              <div key={t.name} className="rounded-2xl p-6 bg-white" style={{ border: '1px solid rgba(0,191,165,0.16)', boxShadow: '0 2px 12px rgba(0,191,165,0.06)' }}>
                 <div className="flex gap-1 mb-4">
-                  {Array.from({ length: t.rating }).map((_, i) => (
+                  {Array.from({ length: 5 }).map((_, i) => (
                     <Star key={i} className="h-4 w-4" style={{ fill: '#00BFA5', color: '#00BFA5' }} />
                   ))}
                 </div>
@@ -683,26 +628,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Creator CTA (join as creator) ── */}
-      <section className="py-20 bg-white" style={{ borderTop: '1px solid rgba(0,191,165,0.12)', borderBottom: '1px solid rgba(0,191,165,0.12)' }}>
+      {/* ── Dual CTA ── */}
+      <section className="py-20 bg-white" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
         <div className="container">
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {/* For brands */}
+          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
             <div className="rounded-2xl p-8 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #00BFA5, #007A6E)' }}>
-              <div className="absolute top-0 right-0 text-8xl opacity-20 -mt-4 -mr-4">🌏</div>
+              <div className="absolute top-0 right-0 text-8xl opacity-10 -mt-4 -mr-2">🌏</div>
               <p className="text-xs font-semibold tracking-widest uppercase mb-3 text-white opacity-75">For Brands · 品牌方</p>
               <h3 className="text-2xl font-extrabold text-white mb-3">Launch your U.S. creator campaign</h3>
               <p className="text-sm text-white opacity-75 mb-6">Tell us your product, audience, and budget — we match you with the perfect creators and handle everything bilingually.</p>
               <Link href="/sign-up?role=BRAND">
-                <button className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-white hover:bg-opacity-90 transition-all" style={{ color: '#007A6E' }}>
+                <button className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold bg-white hover:opacity-95 transition-all" style={{ color: '#007A6E' }}>
                   Start a campaign · 开始合作 <ArrowRight className="h-4 w-4" />
                 </button>
               </Link>
             </div>
-
-            {/* For creators */}
-            <div className="rounded-2xl p-8 relative overflow-hidden bg-white" style={{ border: '2px solid rgba(0,191,165,0.3)', boxShadow: '0 4px 24px rgba(0,191,165,0.1)' }}>
-              <div className="absolute top-0 right-0 text-8xl opacity-10 -mt-4 -mr-4">🎬</div>
+            <div className="rounded-2xl p-8 relative overflow-hidden bg-white" style={{ border: '2px solid rgba(0,191,165,0.28)', boxShadow: '0 4px 24px rgba(0,191,165,0.1)' }}>
+              <div className="absolute top-0 right-0 text-8xl opacity-10 -mt-4 -mr-2">🎬</div>
               <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: '#00BFA5' }}>For Creators · 创作者</p>
               <h3 className="text-2xl font-extrabold mb-3" style={{ color: '#0A1F1C' }}>Get paid to create authentic content</h3>
               <p className="text-sm mb-6" style={{ color: '#6B7280' }}>Join NOMI&apos;s exclusive network and get matched with Chinese brands that fit your niche. We handle contracts, payments, and translations.</p>
@@ -716,21 +658,15 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Contact / CTA ── */}
+      {/* ── Contact ── */}
       <section id="contact" className="py-20" style={{ backgroundColor: '#F0FDF9' }}>
-        <div className="container relative text-center">
-          <div className="flex justify-center mb-5">
-            <NomiLogo size={48} />
-          </div>
-          <h2 className="text-4xl font-bold mb-2" style={{ color: '#0A1F1C' }}>Ready to go global?</h2>
-          <p className="text-lg mb-8 max-w-md mx-auto" style={{ color: '#6B7280' }}>Stop competing on price. Let NOMI&apos;s creator network build the trust that turns American consumers into loyal buyers.</p>
-          <div className="flex flex-wrap items-center justify-center gap-6 text-sm" style={{ color: '#6B7280' }}>
-            {[
-              { label: 'Email', value: 'partnerships@nomi-agency.com' },
-              { label: 'WeChat · 微信', value: 'NOMI_Official' },
-              { label: 'WhatsApp', value: '+1 (555) 123-4567' },
-            ].map((item, i, arr) => (
-              <div key={item.label} className="flex items-center gap-6">
+        <div className="container text-center">
+          <div className="flex justify-center mb-5"><NomiLogo size={46} /></div>
+          <h2 className="text-4xl font-bold mb-3" style={{ color: '#0A1F1C' }}>Ready to go global?</h2>
+          <p className="text-lg mb-10 max-w-md mx-auto" style={{ color: '#6B7280' }}>Stop competing on price. Let NOMI&apos;s creator network build the trust that turns American consumers into loyal buyers.</p>
+          <div className="flex flex-wrap items-center justify-center gap-8 text-sm" style={{ color: '#6B7280' }}>
+            {[{ label: 'Email', value: 'partnerships@nomi-agency.com' }, { label: 'WeChat · 微信', value: 'NOMI_Official' }, { label: 'WhatsApp', value: '+1 (555) 123-4567' }].map((item, i, arr) => (
+              <div key={item.label} className="flex items-center gap-8">
                 <div className="flex flex-col items-center gap-0.5">
                   <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#00BFA5' }}>{item.label}</span>
                   <span>{item.value}</span>
@@ -743,7 +679,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="py-10 bg-white" style={{ borderTop: '1px solid rgba(0,191,165,0.14)' }}>
+      <footer className="py-10 bg-white" style={{ borderTop: '1px solid rgba(0,0,0,0.07)' }}>
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex flex-col items-start gap-1">
             <NomiLogoSmall />
